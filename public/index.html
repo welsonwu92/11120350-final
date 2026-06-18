@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>智慧健康日誌系統 | 期末挑戰</title>
+  <style>
+    /* ====== 全域樣式 ====== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f6; color: #333; }
+    
+    header { background: #2c3e50; color: white; padding: 20px 32px; font-size: 24px; font-weight: bold; }
+    .container { max-width: 900px; margin: 30px auto; padding: 0 16px; }
+
+    /* ====== 卡片區塊 ====== */
+    .card { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 25px; }
+    .card h2 { font-size: 18px; color: #2c3e50; margin-bottom: 20px; border-left: 5px solid #3498db; padding-left: 10px; }
+
+    /* ====== 表單 ====== */
+    .form-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+    .form-row label { display: flex; flex-direction: column; flex: 1; min-width: 150px; font-size: 14px; font-weight: 600; color: #555; gap: 8px; }
+    .form-row input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 15px; }
+    
+    .btn-row { display: flex; gap: 10px; margin-top: 15px; }
+    button { padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
+    .btn-submit { background: #2ecc71; }
+    .btn-delete { background: #e74c3c; }
+    button:hover { filter: brightness(0.9); }
+
+    /* ====== AI 狀態區 (加分重點) ====== */
+    .ai-panel { background: #e8f4f8; padding: 15px; border-radius: 8px; border: 1px dashed #3498db; margin-bottom: 25px; }
+    .ai-panel h3 { font-size: 15px; color: #2980b9; margin-bottom: 10px; }
+    .ai-info { font-family: monospace; font-size: 14px; color: #333; }
+
+    /* ====== 表格 ====== */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    thead { background: #ecf0f1; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+    
+    /* 風險徽章 */
+    .badge { padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
+    .badge-high { background: #e74c3c; }
+    .badge-med { background: #f39c12; }
+    .badge-low { background: #2ecc71; }
+  </style>
+</head>
+<body>
+
+<header>📊 智慧健康日誌與風險評估系統</header>
+
+<div class="container">
+  
+  <!-- 加分項展示區 -->
+  <div class="ai-panel">
+    <h3>🤖 AI 決策樹即時分析狀態 (Information Gain)</h3>
+    <button style="background: #3498db; padding: 6px 12px; font-size: 12px;" onclick="loadTreeInfo()">重新計算最佳切分特徵</button>
+    <div class="ai-info" id="aiInfoText" style="margin-top: 10px;">請點擊按鈕獲取最新決策樹參數...</div>
+  </div>
+
+  <!-- 資料輸入 -->
+  <div class="card">
+    <h2>新增今日健康日誌</h2>
+    <div class="form-row">
+      <label>📅 紀錄日期 <input type="date" id="inputDate" required /></label>
+      <label>💤 睡眠時數 (h) <input type="number" id="inputSleep" step="0.1" placeholder="例: 6.5" required /></label>
+      <label>🚶 步數 <input type="number" id="inputSteps" placeholder="例: 5000" required /></label>
+      <label>😊 心情分數 (1-10) <input type="number" id="inputMood" min="1" max="10" placeholder="例: 8" required /></label>
+    </div>
+    <div class="btn-row">
+      <button class="btn-submit" onclick="handleSubmit()">送出並計算風險</button>
+    </div>
+  </div>
+
+  <!-- 歷史紀錄 -->
+  <div class="card">
+    <h2>歷史日誌與預測結果</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>睡眠時數</th>
+          <th>步數</th>
+          <th>心情</th>
+          <th>AI 評估風險等級</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="logList">
+        <tr><td colspan="6" style="text-align: center;">載入中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// 頁面載入時預設填上今天日期
+document.getElementById('inputDate').valueAsDate = new Date();
+
+// 取得所有日誌
+async function loadLogs() {
+  const res = await fetch('/health-logs');
+  const data = await res.json();
+  const tbody = document.getElementById('logList');
+  
+  if(data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">尚無資料</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(log => {
+    let badgeClass = 'badge-med';
+    if(log.risk_level === '高風險') badgeClass = 'badge-high';
+    if(log.risk_level === '低風險') badgeClass = 'badge-low';
+
+    return `
+      <tr>
+        <td>${log.log_date}</td>
+        <td>${log.sleep_hours} 小時</td>
+        <td>${log.steps} 步</td>
+        <td>${log.mood_score} 分</td>
+        <td><span class="badge ${badgeClass}">${log.risk_level}</span></td>
+        <td><button class="btn-delete" style="padding: 5px 10px; font-size:12px;" onclick="handleDelete(${log.id})">刪除</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// 送出新日誌
+async function handleSubmit() {
+  const log_date = document.getElementById('inputDate').value;
+  const sleep_hours = parseFloat(document.getElementById('inputSleep').value);
+  const steps = parseInt(document.getElementById('inputSteps').value);
+  const mood_score = parseInt(document.getElementById('inputMood').value);
+
+  if(!log_date || isNaN(sleep_hours) || isNaN(steps) || isNaN(mood_score)) {
+    alert('請填寫完整且正確的數值！'); return;
+  }
+
+  const res = await fetch('/health-logs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ log_date, sleep_hours, steps, mood_score })
+  });
+  
+  if (res.ok) {
+    const result = await res.json();
+    alert(`資料已儲存！\nAI 計算結果為：【${result.risk_level}】`);
+    document.getElementById('inputSleep').value = '';
+    document.getElementById('inputSteps').value = '';
+    document.getElementById('inputMood').value = '';
+    loadLogs();
+    loadTreeInfo(); // 更新 AI 狀態
+  } else {
+    alert('儲存失敗');
+  }
+}
+
+// 刪除日誌
+async function handleDelete(id) {
+  if(!confirm('確定要刪除這筆紀錄嗎？')) return;
+  await fetch(`/health-logs/${id}`, { method: 'DELETE' });
+  loadLogs();
+}
+
+// 載入 AI 樹狀資訊 (加分展示項)
+async function loadTreeInfo() {
+  const res = await fetch('/health-logs/tree-info');
+  const data = await res.json();
+  const infoBox = document.getElementById('aiInfoText');
+  
+  if(data.error) {
+    infoBox.innerHTML = `<span style="color:red;">${data.error}</span>`;
+  } else {
+    const fieldMap = { 'sleep_hours': '睡眠時數', 'steps': '步數', 'mood_score': '心情分數' };
+    infoBox.innerHTML = `
+      ✅ <strong>根節點最佳切分特徵：</strong> ${fieldMap[data.feature] || data.feature} <br>
+      ✅ <strong>最佳切分門檻值：</strong> ${data.threshold} <br>
+      ✅ <strong>最高資訊增益 (IG)：</strong> ${data.informationGain} <br>
+      <em style="color:#7f8c8d; font-size: 12px;">(說明：系統會自動尋找能將「風險等級」分得最乾淨的特徵與數值作為決策樹分支)</em>
+    `;
+  }
+}
+
+// 初始化
+loadLogs();
+loadTreeInfo();
+</script>
+</body>
+</html>
